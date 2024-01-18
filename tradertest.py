@@ -24,5 +24,17 @@ m = easyquant.MainEngine(broker,
                          bar_type="1m",
                          log_handler=log_handler)
 m.is_watch_strategy = True  # 策略文件出现改动时,自动重载,不建议在生产环境下使用
-m.load_strategy()
-m.start()
+# m.load_strategy()
+# m.start()
+
+print("账户")
+# print(m.context.balance)
+print(m.user.get_balance())
+print("持仓")
+print(m.user.get_position())
+print("当日委托")
+print(m.user.get_entrust())
+print("当日成交")
+print(m.user.get_current_deal())
+
+

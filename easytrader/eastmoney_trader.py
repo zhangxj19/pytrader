@@ -7,6 +7,8 @@ import pickle
 import random
 import time
 from typing import List
+from PIL import Image
+import io
 
 import ddddocr
 import requests
@@ -18,6 +20,13 @@ from easytrader.model import Balance, Position, Entrust, Deal
 public_key = '-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDHdsyxT66pDG4p73yope7jxA92\nc0AT4qIJ' \
             '/xtbBcHkFPK77upnsfDTJiVEuQDH+MiMeb+XhCLNKZGp0yaUU6GlxZdp\n+nLW8b7Kmijr3iepaDhcbVTsYBWchaWUXauj9Lrhz58' \
             '/6AE/NF0aMolxIGpsi+ST\n2hSHPu3GSXMdhPCkWQIDAQAB\n-----END PUBLIC KEY----- '
+
+
+# public_key = ''
+# with open('./public_key.txt', 'r') as f:
+#     for line in f.readlines():
+#         public_key += line
+# logger.info(f"public key:\n {public_key}")
 
 import base64
 from Crypto.PublicKey import RSA
@@ -35,7 +44,8 @@ class EastMoneyTrader(webtrader.WebTrader):
     validate_key = None
 
     _HEADERS = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/536.66",
+        # "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/536.66",
+        "User-Agent": "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Mobile Safari/537.36",
         "Host": "jywg.18.cn",
         "Pragma": "no-cache",
         "Connection": "keep-alive",
@@ -68,13 +78,27 @@ class EastMoneyTrader(webtrader.WebTrader):
         self.account_config = None
 
     def _recognize_verification_code(self):
-        ocr = ddddocr.DdddOcr()
+        ocr = ddddocr.DdddOcr(show_ad=False)
         self.random_number = '0.305%d' % random.randint(100000, 900000)
+        logger.info("%s%s" % (self.config['yzm'], self.random_number))
         req = self.s.get("%s%s" % (self.config['yzm'], self.random_number))
-        code = ocr.classification(req.content)
+        # logger.info(f"req.content {req.content} req.status_code {req.status_code} content type {type(req.content)}")
+        logger.info(f"req.status_code {req.status_code} content type {type(req.content)}")
+
+        image = Image.open(io.BytesIO(req.content))
+        image.save('code.png')
+
+        code_class = ocr.classification(req.content)
+        logger.info(f"识别验证码为 {code_class}")
+        # code = input(f"验证码位于./code.png, 手动替换:(否则为{code_class})")
+        code = ""
+        if code == "":
+            code = code_class
+        logger.info(f"code {code}")
         if len(code) == 4:
+            logger.info(f"code {code} len is 4")
             return code
-        # code length should be 4
+        logger.info(f"code {code} len is {len(code)}, should be 4")
         time.sleep(1)
         return self._recognize_verification_code()
 
@@ -134,7 +158,7 @@ class EastMoneyTrader(webtrader.WebTrader):
 
             if login_res['Status'] != 0:
                 logger.info('auto login error, try again later')
-                print(login_res)
+                logger.info(f"{login_res}")
                 time.sleep(3)
             else:
                 break
@@ -265,7 +289,6 @@ class EastMoneyTrader(webtrader.WebTrader):
             raise exceptions.TradeError(u"获取持仓失败")
 
         balance = self.get_balance()[0]
-        print(balance)
         position_list = []
 
         # TODO 验证
@@ -303,6 +326,8 @@ class EastMoneyTrader(webtrader.WebTrader):
                     stock_name=xq_entrusts["Zqmc"],
                     entrust_amount=int(xq_entrusts["Wtsl"]),
                     entrust_price=float(xq_entrusts["Wtjg"]),
+                    # cost=float(xq_entrusts['Cjje'])
+                    cost=0,
                 )
             )
         return entrust_list
@@ -396,6 +421,7 @@ class EastMoneyTrader(webtrader.WebTrader):
 
 if __name__ == '__main__':
     trader = EastMoneyTrader()
-    trader.prepare('../eastmoney.json')
+    # trader.prepare('../eastmoney.json')
+    trader.prepare('../account.json')
     print(trader.get_position())
-    trader.buy('002230', price=55, amount=100)
+    # trader.buy('002230', price=55, amount=100)
